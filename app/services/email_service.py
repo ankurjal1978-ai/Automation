@@ -24,8 +24,8 @@ def resolve_sender_email(preferred_sender: Optional[str] = None) -> str:
     )
 
 
-def get_email_config() -> Dict[str, str | int]:
-    username = resolve_sender_email().strip()
+def get_email_config(preferred_sender: Optional[str] = None) -> Dict[str, str | int]:
+    username = resolve_sender_email(preferred_sender).strip()
     password = os.getenv("GMAIL_APP_PASSWORD", "").strip()
 
     if not username or not password:

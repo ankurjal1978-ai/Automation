@@ -24,6 +24,17 @@ def test_resolve_sender_email_prefers_gmail_from_email(monkeypatch):
     assert resolve_sender_email() == "primary@gmail.com"
 
 
+def test_get_email_config_uses_explicit_sender_email(monkeypatch):
+    monkeypatch.delenv("GMAIL_USERNAME", raising=False)
+    monkeypatch.delenv("GMAIL_FROM_EMAIL", raising=False)
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "abcd-efgh-1234")
+
+    config = get_email_config("selected@gmail.com")
+
+    assert config["username"] == "selected@gmail.com"
+    assert config["password"] == "abcd-efgh-1234"
+
+
 def test_build_email_message_includes_recipient_and_body():
     msg = build_email_message(
         recipient="alice@example.com",

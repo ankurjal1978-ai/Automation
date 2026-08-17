@@ -277,7 +277,7 @@ if send_button:
                         campaign_subject,
                         body,
                         sender_name="Drip automation",
-                        sender_email=sender_email or None,
+                        sender_email=(sender_email.strip() if sender_email else None),
                     )
                     sent.append(recipient)
                 except Exception as exc:
