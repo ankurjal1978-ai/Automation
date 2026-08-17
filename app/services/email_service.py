@@ -24,13 +24,16 @@ def resolve_sender_email(preferred_sender: Optional[str] = None) -> str:
     )
 
 
-def get_email_config(preferred_sender: Optional[str] = None) -> Dict[str, str | int]:
+def get_email_config(
+    preferred_sender: Optional[str] = None,
+    preferred_password: Optional[str] = None,
+) -> Dict[str, str | int]:
     username = resolve_sender_email(preferred_sender).strip()
-    password = os.getenv("GMAIL_APP_PASSWORD", "").strip()
+    password = (preferred_password or os.getenv("GMAIL_APP_PASSWORD", "")).strip()
 
     if not username or not password:
         raise ValueError(
-            "Missing Gmail configuration. Set GMAIL_USERNAME or GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD in your environment/.env file."
+            "Missing Gmail configuration. Enter the Gmail App Password in the UI or set GMAIL_USERNAME or GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD in your environment/.env file."
         )
 
     return {
@@ -68,8 +71,9 @@ def send_email(
     body: str,
     sender_name: Optional[str] = None,
     sender_email: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> Dict[str, str]:
-    config = get_email_config()
+    config = get_email_config(preferred_sender=sender_email, preferred_password=password)
     sender_name = sender_name or str(config["sender_name"])
     sender_email = sender_email or resolve_sender_email()
 
@@ -94,6 +98,7 @@ def send_bulk_emails(
     body_template: str,
     sender_name: Optional[str] = None,
     sender_email: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     results: List[Dict[str, str]] = []
     sender_email = sender_email or resolve_sender_email()
@@ -107,6 +112,7 @@ def send_bulk_emails(
             body,
             sender_name=sender_name,
             sender_email=sender_email,
+            password=password,
         )
         results.append(result)
     return results

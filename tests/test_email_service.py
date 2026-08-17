@@ -35,6 +35,15 @@ def test_get_email_config_uses_explicit_sender_email(monkeypatch):
     assert config["password"] == "abcd-efgh-1234"
 
 
+def test_get_email_config_uses_explicit_password_override(monkeypatch):
+    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    monkeypatch.setenv("GMAIL_USERNAME", "sender@gmail.com")
+
+    config = get_email_config(preferred_password="override-app-pass")
+
+    assert config["password"] == "override-app-pass"
+
+
 def test_build_email_message_includes_recipient_and_body():
     msg = build_email_message(
         recipient="alice@example.com",

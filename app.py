@@ -221,10 +221,18 @@ if st.sidebar.button("Load sample data"):
 
 st.sidebar.subheader("Gmail send")
 with st.sidebar:
+    st.caption("Use the Gmail account that owns your App Password.")
     sender_email = st.text_input(
         "From Gmail address",
         value=str(__import__('os').getenv("GMAIL_USERNAME", "") or __import__('os').getenv("GMAIL_FROM_EMAIL", "")),
-        help="Use the Gmail account that owns the App Password. This is the sender address used for all emails.",
+        help="This is the Gmail address that will appear as the sender.",
+        placeholder="your_sender@gmail.com",
+    )
+    gmail_password = st.text_input(
+        "Gmail App Password",
+        type="password",
+        help="Use a Google App Password, not your normal Gmail login password.",
+        placeholder="Paste your 16-character app password",
     )
     campaign_subject = st.text_input("Email subject", value="Welcome to Drip automation")
     campaign_body = st.text_area(
@@ -278,6 +286,7 @@ if send_button:
                         body,
                         sender_name="Drip automation",
                         sender_email=(sender_email.strip() if sender_email else None),
+                        password=(gmail_password.strip() if gmail_password else None),
                     )
                     sent.append(recipient)
                 except Exception as exc:
