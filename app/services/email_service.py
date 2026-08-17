@@ -11,7 +11,9 @@ load_dotenv()
 def resolve_sender_email(preferred_sender: Optional[str] = None) -> str:
     candidates = [
         preferred_sender,
+        os.getenv("SMTP_FROM_EMAIL", "").strip(),
         os.getenv("GMAIL_FROM_EMAIL", "").strip(),
+        os.getenv("SMTP_USERNAME", "").strip(),
         os.getenv("GMAIL_USERNAME", "").strip(),
     ]
 
@@ -20,28 +22,48 @@ def resolve_sender_email(preferred_sender: Optional[str] = None) -> str:
             return candidate.strip()
 
     raise ValueError(
-        "No Gmail sender email is configured. Set GMAIL_USERNAME or GMAIL_FROM_EMAIL in your local .env file."
+        "No sender email is configured. Enter a sender address in the app or set SMTP_FROM_EMAIL or GMAIL_FROM_EMAIL."
     )
 
 
 def get_email_config(
     preferred_sender: Optional[str] = None,
+    preferred_username: Optional[str] = None,
     preferred_password: Optional[str] = None,
-) -> Dict[str, str | int]:
-    username = resolve_sender_email(preferred_sender).strip()
-    password = (preferred_password or os.getenv("GMAIL_APP_PASSWORD", "")).strip()
+    smtp_host: Optional[str] = None,
+    smtp_port: Optional[int] = None,
+    use_tls: Optional[bool] = None,
+) -> Dict[str, str | int | bool]:
+    username = (preferred_username or os.getenv("SMTP_USERNAME", "").strip() or resolve_sender_email(preferred_sender)).strip()
+    password = (preferred_password or os.getenv("SMTP_PASSWORD", "").strip() or os.getenv("GMAIL_APP_PASSWORD", "").strip()).strip()
+    sender = resolve_sender_email(preferred_sender).strip()
 
     if not username or not password:
         raise ValueError(
-            "Missing Gmail configuration. Enter the Gmail App Password in the UI or set GMAIL_USERNAME or GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD in your environment/.env file."
+            "Missing SMTP configuration. Enter the sender email, username, and password in the UI or configure SMTP_USERNAME and SMTP_PASSWORD in your environment/.env file."
         )
+
+    host = (smtp_host or os.getenv("SMTP_HOST", "").strip() or os.getenv("GMAIL_SMTP_HOST", "").strip() or "smtp.gmail.com").strip()
+    if not host:
+        host = "smtp.gmail.com"
+
+    gmail_default = host.lower().endswith("gmail.com") and not os.getenv("SMTP_HOST", "").strip() and not smtp_host
+    port_default = "465" if gmail_default else (os.getenv("SMTP_PORT", "").strip() or os.getenv("GMAIL_SMTP_PORT", "587").strip() or "587")
+    port_value = smtp_port or int(port_default)
+    security = use_tls if use_tls is not None else (
+        str(os.getenv("SMTP_USE_TLS", "")).lower() == "true"
+        if os.getenv("SMTP_USE_TLS", "")
+        else (not gmail_default)
+    )
 
     return {
         "username": username,
         "password": password,
-        "smtp_server": "smtp.gmail.com",
-        "smtp_port": 465,
-        "sender_name": os.getenv("GMAIL_SENDER_NAME", "Drip automation"),
+        "smtp_server": host,
+        "smtp_port": int(port_value),
+        "sender_name": os.getenv("SMTP_SENDER_NAME", "Drip automation"),
+        "sender_email": sender,
+        "use_tls": security,
     }
 
 
@@ -55,7 +77,7 @@ def build_email_message(
     sender_email = sender_email or resolve_sender_email()
 
     if not sender_email:
-        raise ValueError("A valid Gmail sender address must be configured before sending email.")
+        raise ValueError("A valid sender address must be configured before sending email.")
 
     message = EmailMessage()
     message["From"] = f"{sender_name} <{sender_email}>"
@@ -72,10 +94,21 @@ def send_email(
     sender_name: Optional[str] = None,
     sender_email: Optional[str] = None,
     password: Optional[str] = None,
+    username: Optional[str] = None,
+    smtp_host: Optional[str] = None,
+    smtp_port: Optional[int] = None,
+    use_tls: Optional[bool] = None,
 ) -> Dict[str, str]:
-    config = get_email_config(preferred_sender=sender_email, preferred_password=password)
+    config = get_email_config(
+        preferred_sender=sender_email,
+        preferred_username=username,
+        preferred_password=password,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        use_tls=use_tls,
+    )
     sender_name = sender_name or str(config["sender_name"])
-    sender_email = sender_email or resolve_sender_email()
+    sender_email = sender_email or str(config["sender_email"])
 
     message = build_email_message(
         recipient=recipient,
@@ -85,9 +118,20 @@ def send_email(
         sender_email=sender_email,
     )
 
-    with smtplib.SMTP_SSL(config["smtp_server"], int(config["smtp_port"])) as server:
-        server.login(config["username"], config["password"])
-        server.send_message(message)
+    smtp_server = str(config["smtp_server"])
+    port = int(config["smtp_port"])
+    use_tls_flag = bool(config["use_tls"])
+
+    if port == 465:
+        with smtplib.SMTP_SSL(smtp_server, port) as server:
+            server.login(str(config["username"]), str(config["password"]))
+            server.send_message(message)
+    else:
+        with smtplib.SMTP(smtp_server, port) as server:
+            if use_tls_flag:
+                server.starttls()
+            server.login(str(config["username"]), str(config["password"]))
+            server.send_message(message)
 
     return {"status": "sent", "recipient": recipient, "subject": subject}
 
@@ -99,6 +143,10 @@ def send_bulk_emails(
     sender_name: Optional[str] = None,
     sender_email: Optional[str] = None,
     password: Optional[str] = None,
+    username: Optional[str] = None,
+    smtp_host: Optional[str] = None,
+    smtp_port: Optional[int] = None,
+    use_tls: Optional[bool] = None,
 ) -> List[Dict[str, str]]:
     results: List[Dict[str, str]] = []
     sender_email = sender_email or resolve_sender_email()
@@ -113,6 +161,10 @@ def send_bulk_emails(
             sender_name=sender_name,
             sender_email=sender_email,
             password=password,
+            username=username,
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            use_tls=use_tls,
         )
         results.append(result)
     return results

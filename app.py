@@ -219,21 +219,34 @@ if st.sidebar.button("Load sample data"):
     else:
         st.sidebar.warning("Sample CSV not found in the project folder.")
 
-st.sidebar.subheader("Gmail send")
+st.sidebar.subheader("SMTP send")
 with st.sidebar:
-    st.caption("Use the Gmail account that owns your App Password.")
+    st.caption("Works with Gmail, Outlook, SendGrid, and other SMTP providers.")
     sender_email = st.text_input(
-        "From Gmail address",
-        value=str(__import__('os').getenv("GMAIL_USERNAME", "") or __import__('os').getenv("GMAIL_FROM_EMAIL", "")),
-        help="This is the Gmail address that will appear as the sender.",
-        placeholder="your_sender@gmail.com",
+        "From email address",
+        value=str(__import__('os').getenv("SMTP_FROM_EMAIL", "") or __import__('os').getenv("GMAIL_USERNAME", "") or __import__('os').getenv("GMAIL_FROM_EMAIL", "")),
+        help="This is the address shown as the sender.",
+        placeholder="you@example.com",
     )
-    gmail_password = st.text_input(
-        "Gmail App Password",
+    smtp_username = st.text_input(
+        "SMTP username",
+        value=str(__import__('os').getenv("SMTP_USERNAME", "") or __import__('os').getenv("GMAIL_USERNAME", "")),
+        help="Usually the same as your email address, or your SMTP account login.",
+        placeholder="your_account_or_email",
+    )
+    smtp_password = st.text_input(
+        "SMTP password / app password",
         type="password",
-        help="Use a Google App Password, not your normal Gmail login password.",
-        placeholder="Paste your 16-character app password",
+        help="Use your SMTP password, Gmail App Password, or provider-specific token.",
+        placeholder="Paste your password or app token",
     )
+    smtp_host = st.text_input(
+        "SMTP host",
+        value=str(__import__('os').getenv("SMTP_HOST", "") or "smtp.gmail.com"),
+        help="Example: smtp.gmail.com, smtp.office365.com, smtp.sendgrid.net",
+    )
+    smtp_port = st.number_input("SMTP port", min_value=1, max_value=65535, value=587, step=1)
+    use_tls = st.selectbox("Security", options=["STARTTLS", "SSL"], index=0)
     campaign_subject = st.text_input("Email subject", value="Welcome to Drip automation")
     campaign_body = st.text_area(
         "Email body",
@@ -286,20 +299,24 @@ if send_button:
                         body,
                         sender_name="Drip automation",
                         sender_email=(sender_email.strip() if sender_email else None),
-                        password=(gmail_password.strip() if gmail_password else None),
+                        username=(smtp_username.strip() if smtp_username else None),
+                        password=(smtp_password.strip() if smtp_password else None),
+                        smtp_host=(smtp_host.strip() if smtp_host else None),
+                        smtp_port=int(smtp_port),
+                        use_tls=(use_tls == "STARTTLS"),
                     )
                     sent.append(recipient)
                 except Exception as exc:
                     st.warning(f"Failed to send to {recipient}: {exc}")
 
             if sent:
-                st.success(f"Sent {len(sent)} email(s) from Gmail using the configured app password.")
+                st.success(f"Sent {len(sent)} email(s) using the configured SMTP provider.")
             else:
                 st.error(
-                    "No emails were sent. Check that your Gmail app password is valid and that the environment variables are set."
+                    "No emails were sent. Check that the SMTP host, port, username, and password are valid."
                 )
     except Exception as exc:
-        st.error(f"Gmail sending is not configured correctly: {exc}")
+        st.error(f"SMTP sending is not configured correctly: {exc}")
         st.info(
-            "Set GMAIL_USERNAME and GMAIL_APP_PASSWORD in a local environment file before testing email delivery."
+            "Enter the SMTP host, username, and password in the sidebar or configure SMTP_* variables in a local .env file."
         )
