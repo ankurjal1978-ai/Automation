@@ -2,11 +2,14 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
 
 from app.config import DB_PATH, REQUIRED_FIELDS
 from app.database import get_connection, init_db
 from app.services.contact_service import normalize_contact_row, validate_contact
 from app.services.email_service import send_bulk_emails
+
+load_dotenv()
 
 st.set_page_config(page_title="Drip automation", layout="wide")
 
@@ -269,6 +272,14 @@ if send_button:
                 except Exception as exc:
                     st.warning(f"Failed to send to {recipient}: {exc}")
 
-            st.success(f"Sent {len(sent)} email(s) from Gmail using the configured app password.")
+            if sent:
+                st.success(f"Sent {len(sent)} email(s) from Gmail using the configured app password.")
+            else:
+                st.error(
+                    "No emails were sent. Check that your Gmail app password is valid and that the environment variables are set."
+                )
     except Exception as exc:
         st.error(f"Gmail sending is not configured correctly: {exc}")
+        st.info(
+            "Set GMAIL_USERNAME and GMAIL_APP_PASSWORD in a local environment file before testing email delivery."
+        )

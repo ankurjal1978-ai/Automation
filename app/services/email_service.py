@@ -3,6 +3,10 @@ import smtplib
 from email.message import EmailMessage
 from typing import Dict, List, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def get_email_config() -> Dict[str, str | int]:
     username = os.getenv("GMAIL_USERNAME", "").strip()
