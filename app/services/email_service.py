@@ -8,13 +8,29 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def resolve_sender_email(preferred_sender: Optional[str] = None) -> str:
+    candidates = [
+        preferred_sender,
+        os.getenv("GMAIL_FROM_EMAIL", "").strip(),
+        os.getenv("GMAIL_USERNAME", "").strip(),
+    ]
+
+    for candidate in candidates:
+        if candidate and candidate.strip():
+            return candidate.strip()
+
+    raise ValueError(
+        "No Gmail sender email is configured. Set GMAIL_USERNAME or GMAIL_FROM_EMAIL in your local .env file."
+    )
+
+
 def get_email_config() -> Dict[str, str | int]:
-    username = os.getenv("GMAIL_USERNAME", "").strip()
+    username = resolve_sender_email().strip()
     password = os.getenv("GMAIL_APP_PASSWORD", "").strip()
 
     if not username or not password:
         raise ValueError(
-            "Missing Gmail configuration. Set GMAIL_USERNAME and GMAIL_APP_PASSWORD in your environment/.env file."
+            "Missing Gmail configuration. Set GMAIL_USERNAME or GMAIL_FROM_EMAIL and GMAIL_APP_PASSWORD in your environment/.env file."
         )
 
     return {
@@ -33,10 +49,10 @@ def build_email_message(
     sender_name: str = "Drip automation",
     sender_email: Optional[str] = None,
 ) -> EmailMessage:
-    sender_email = sender_email or os.getenv("GMAIL_USERNAME", "")
+    sender_email = sender_email or resolve_sender_email()
 
     if not sender_email:
-        raise ValueError("GMAIL_USERNAME must be set before sending email.")
+        raise ValueError("A valid Gmail sender address must be configured before sending email.")
 
     message = EmailMessage()
     message["From"] = f"{sender_name} <{sender_email}>"
@@ -55,7 +71,7 @@ def send_email(
 ) -> Dict[str, str]:
     config = get_email_config()
     sender_name = sender_name or str(config["sender_name"])
-    sender_email = sender_email or str(config["username"])
+    sender_email = sender_email or resolve_sender_email()
 
     message = build_email_message(
         recipient=recipient,
@@ -77,12 +93,20 @@ def send_bulk_emails(
     subject: str,
     body_template: str,
     sender_name: Optional[str] = None,
+    sender_email: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     results: List[Dict[str, str]] = []
+    sender_email = sender_email or resolve_sender_email()
     for recipient in recipients:
         if not recipient:
             continue
         body = body_template
-        result = send_email(recipient, subject, body, sender_name=sender_name)
+        result = send_email(
+            recipient,
+            subject,
+            body,
+            sender_name=sender_name,
+            sender_email=sender_email,
+        )
         results.append(result)
     return results

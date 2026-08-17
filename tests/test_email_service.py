@@ -1,11 +1,12 @@
 import pytest
 
-from app.services.email_service import build_email_message, get_email_config
+from app.services.email_service import build_email_message, get_email_config, resolve_sender_email
 
 
 def test_get_email_config_reads_gmail_env(monkeypatch):
     monkeypatch.setenv("GMAIL_USERNAME", "sender@gmail.com")
     monkeypatch.setenv("GMAIL_APP_PASSWORD", "abcd-efgh-1234")
+    monkeypatch.delenv("GMAIL_FROM_EMAIL", raising=False)
 
     config = get_email_config()
 
@@ -13,6 +14,14 @@ def test_get_email_config_reads_gmail_env(monkeypatch):
     assert config["password"] == "abcd-efgh-1234"
     assert config["smtp_server"] == "smtp.gmail.com"
     assert config["smtp_port"] == 465
+
+
+def test_resolve_sender_email_prefers_gmail_from_email(monkeypatch):
+    monkeypatch.setenv("GMAIL_USERNAME", "fallback@gmail.com")
+    monkeypatch.setenv("GMAIL_FROM_EMAIL", "primary@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "abcd-efgh-1234")
+
+    assert resolve_sender_email() == "primary@gmail.com"
 
 
 def test_build_email_message_includes_recipient_and_body():
@@ -31,6 +40,10 @@ def test_build_email_message_includes_recipient_and_body():
     assert "Drip automation" in payload
 
 
-def test_get_email_config_requires_credentials():
+def test_get_email_config_requires_credentials(monkeypatch):
+    monkeypatch.delenv("GMAIL_USERNAME", raising=False)
+    monkeypatch.delenv("GMAIL_FROM_EMAIL", raising=False)
+    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+
     with pytest.raises(ValueError):
         get_email_config()

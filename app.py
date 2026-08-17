@@ -221,6 +221,11 @@ if st.sidebar.button("Load sample data"):
 
 st.sidebar.subheader("Gmail send")
 with st.sidebar:
+    sender_email = st.text_input(
+        "From Gmail address",
+        value=str(__import__('os').getenv("GMAIL_USERNAME", "") or __import__('os').getenv("GMAIL_FROM_EMAIL", "")),
+        help="Use the Gmail account that owns the App Password. This is the sender address used for all emails.",
+    )
     campaign_subject = st.text_input("Email subject", value="Welcome to Drip automation")
     campaign_body = st.text_area(
         "Email body",
@@ -267,7 +272,13 @@ if send_button:
             sent = []
             for recipient, body in rendered_recipients:
                 try:
-                    send_bulk_emails([recipient], campaign_subject, body, sender_name="Drip automation")
+                    send_bulk_emails(
+                        [recipient],
+                        campaign_subject,
+                        body,
+                        sender_name="Drip automation",
+                        sender_email=sender_email or None,
+                    )
                     sent.append(recipient)
                 except Exception as exc:
                     st.warning(f"Failed to send to {recipient}: {exc}")
