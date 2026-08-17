@@ -250,8 +250,26 @@ with st.sidebar:
     campaign_subject = st.text_input("Email subject", value="Welcome to Drip automation")
     campaign_body = st.text_area(
         "Email body",
-        value="Hello {first_name},\n\nThanks for your interest in Drip automation.\n\nBest,\nThe team",
-        height=180,
+        value=(
+            "<html><body style='font-family:Arial,sans-serif;background:#f5f7fb;padding:24px;'>"
+            "<div style='max-width:640px;margin:auto;background:white;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;'>"
+            "<img src='https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80' alt='Campaign hero' style='width:100%;height:220px;object-fit:cover;'>"
+            "<div style='padding:24px 28px 32px;'>"
+            "<p style='text-transform:uppercase;letter-spacing:1px;color:#5b6bff;font-size:12px;font-weight:bold;'>New campaign</p>"
+            "<h2 style='margin:0 0 12px;font-size:28px;color:#111827;'>Hello {first_name},</h2>"
+            "<p style='font-size:16px;color:#374151;line-height:1.7;'>Thanks for your interest in Drip automation. We help teams turn leads into qualified conversations with a simple, measurable outreach engine.</p>"
+            "<p style='margin:20px 0;font-size:16px;color:#374151;line-height:1.7;'>Your workflow is now ready to test with smarter segmentation, cleaner follow-ups, and better visibility into who opened and engaged.</p>"
+            "<div style='margin:24px 0;padding:16px 20px;background:#f3f4f6;border-radius:10px;'>"
+            "<p style='margin:0;color:#111827;font-size:15px;'><strong>Campaign:</strong> {campaign_name}</p>"
+            "<p style='margin:8px 0 0;color:#111827;font-size:15px;'><strong>Next step:</strong> Review your outreach cadence and schedule the next touchpoint.</p>"
+            "</div>"
+            "<p style='margin:20px 0 0;font-size:14px;color:#4b5563;'>Best,<br>Drip automation team</p>"
+            "</div>"
+            "</div>"
+            "<img src='https://example.com/track-open?email={email}&campaign={campaign_name}&first_name={first_name}' width='1' height='1' alt='' style='display:none;'>"
+            "</body></html>"
+        ),
+        height=220,
     )
     send_button = st.button("Send sample emails")
 
@@ -287,8 +305,12 @@ if send_button:
             rendered_recipients = []
             for row in load_contacts().to_dict(orient="records"):
                 first_name = (row.get("first_name") or "there").strip() or "there"
+                email_value = (row.get("email") or "").strip()
+                campaign_name = (row.get("campaign") or "launch-series").strip() or "launch-series"
                 email_body = campaign_body.replace("{first_name}", first_name)
-                rendered_recipients.append((row.get("email"), email_body))
+                email_body = email_body.replace("{email}", email_value)
+                email_body = email_body.replace("{campaign_name}", campaign_name)
+                rendered_recipients.append((email_value, email_body))
 
             sent = []
             for recipient, body in rendered_recipients:
