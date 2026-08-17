@@ -6,6 +6,7 @@ import streamlit as st
 from app.config import DB_PATH, REQUIRED_FIELDS
 from app.database import get_connection, init_db
 from app.services.contact_service import normalize_contact_row, validate_contact
+from app.services.email_service import send_bulk_emails
 
 st.set_page_config(page_title="Drip automation", layout="wide")
 
@@ -215,6 +216,16 @@ if st.sidebar.button("Load sample data"):
     else:
         st.sidebar.warning("Sample CSV not found in the project folder.")
 
+st.sidebar.subheader("Gmail send")
+with st.sidebar:
+    campaign_subject = st.text_input("Email subject", value="Welcome to Drip automation")
+    campaign_body = st.text_area(
+        "Email body",
+        value="Hello {first_name},\n\nThanks for your interest in Drip automation.\n\nBest,\nThe team",
+        height=180,
+    )
+    send_button = st.button("Send sample emails")
+
 uploaded_file = st.file_uploader("Upload CSV contact list", type=["csv"])
 
 if uploaded_file is not None:
@@ -237,3 +248,27 @@ else:
 
     st.subheader("Contacts")
     st.dataframe(load_contacts(), use_container_width=True)
+
+if send_button:
+    try:
+        recipients = load_contacts()["email"].dropna().tolist()
+        if not recipients:
+            st.warning("There are no saved contacts to email yet. Upload a CSV first.")
+        else:
+            rendered_recipients = []
+            for row in load_contacts().to_dict(orient="records"):
+                first_name = (row.get("first_name") or "there").strip() or "there"
+                email_body = campaign_body.replace("{first_name}", first_name)
+                rendered_recipients.append((row.get("email"), email_body))
+
+            sent = []
+            for recipient, body in rendered_recipients:
+                try:
+                    send_bulk_emails([recipient], campaign_subject, body, sender_name="Drip automation")
+                    sent.append(recipient)
+                except Exception as exc:
+                    st.warning(f"Failed to send to {recipient}: {exc}")
+
+            st.success(f"Sent {len(sent)} email(s) from Gmail using the configured app password.")
+    except Exception as exc:
+        st.error(f"Gmail sending is not configured correctly: {exc}")
